@@ -265,6 +265,7 @@ i2
 		Dsvo: dsv.DSVOpt{
 			FieldDelimiter: dsv.DString("ABC"),
 			FieldOperator:  dsv.DString("___"),
+			EscapeOperator: dsv.DString("|||"),
 			LineSeparator:  dsv.DString("&&&&&&&&&&&"),
 		},
 		Into: &([]genericCSV{}),
@@ -276,10 +277,67 @@ i2
 		}{
 			RowCount: 1,
 			Value: &([]genericCSV{
-				{Field1: "i", Field2: "am", Field3: "data", Field4: "with ABC in the middle"},
+				{Field1: "i", Field2: "am", Field3: "data", Field4: "with ABC and ___ in the middle"},
 			}),
 		},
-		Data: `iABChasABCheadersABCwith&&&&&&&&&&&iABCamABCdataABC___with ABC in the middle___`,
+		Data: `iABChasABCheadersABCwith&&&&&&&&&&&iABCamABCdataABC___with ABC and |||___ in the middle___`,
+	},
+	{
+		Name: "zero length escape",
+		Dsvo: dsv.DSVOpt{
+			EscapeOperator: dsv.DString(""),
+		},
+		Into: &([]genericCSV{}),
+		Len:  func(i interface{}) int { return len(*(i.(*[]genericCSV))) },
+		Cmp:  GenericCSVCmp,
+		Expect: struct {
+			RowCount int
+			Value    interface{}
+		}{
+			RowCount: 1,
+			Value: &([]genericCSV{
+				{Field1: "\\hello"},
+			}),
+		},
+		Data: `i
+\hello`,
+	},
+	{
+		Name: "zero length escape, no data",
+		Dsvo: dsv.DSVOpt{
+			EscapeOperator: dsv.DString(""),
+		},
+		Into: &([]genericCSV{}),
+		Len:  func(i interface{}) int { return len(*(i.(*[]genericCSV))) },
+		Cmp:  GenericCSVCmp,
+		Expect: struct {
+			RowCount int
+			Value    interface{}
+		}{
+			RowCount: 0,
+			Value:    &([]genericCSV{}),
+		},
+		Data: `i`,
+	},
+	{
+		Name: "zero length escape, data but nothing mapped",
+		Dsvo: dsv.DSVOpt{
+			EscapeOperator: dsv.DString(""),
+		},
+		Into: &([]genericCSV{}),
+		Len:  func(i interface{}) int { return len(*(i.(*[]genericCSV))) },
+		Cmp:  GenericCSVCmp,
+		Expect: struct {
+			RowCount int
+			Value    interface{}
+		}{
+			RowCount: 1,
+			Value: &([]genericCSV{
+				{Field1: ""},
+			}),
+		},
+		Data: `i\
+a`,
 	},
 }
 

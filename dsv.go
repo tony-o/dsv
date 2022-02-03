@@ -156,6 +156,13 @@ func NewDSV(opt DSVOpt) (dsvi, error) {
 	di.folen = len(di.fieldOperator)
 	di.fdlen = len(di.fieldDelimiter)
 
+	if di.fdlen == 0 {
+		return di, DSV_FIELD_DELIMITER_NZ
+	}
+	if di.lslen == 0 {
+		return di, DSV_LINE_SEPARATOR_NZ
+	}
+
 	di.escapedDelimiter = di.escapeOperator + di.fieldDelimiter
 	di.escapedOperator = di.escapeOperator + di.fieldOperator
 	di.escapedSeparator = di.escapeOperator + di.lineSeparator
@@ -178,12 +185,24 @@ func (d dsvi) NormalizeString(s string) string {
 	}
 	sl = len(s)
 	for i := 0; i < sl; i++ {
-		if sl > i+d.escslen && s[i:i+d.escslen] == d.escapedSeparator {
+		if d.escslen > d.lslen && sl > i+d.escslen && s[i:i+d.escslen] == d.escapedSeparator {
 			s = s[0:i] + d.lineSeparator + s[i+d.escslen:]
 			i -= d.escslen
 			sl = len(s)
+			continue
 		}
-		// TODO: handle other escapes
+		if d.escolen > d.folen && sl > i+d.escolen && s[i:i+d.escolen] == d.escapedOperator {
+			s = s[0:i] + d.fieldOperator + s[i+d.escolen:]
+			i -= d.escolen
+			sl = len(s)
+			continue
+		}
+		if d.escdlen > d.fdlen && sl > i+d.escdlen && s[i:i+d.escdlen] == d.escapedDelimiter {
+			s = s[0:i] + d.fieldDelimiter + s[i+d.escdlen:]
+			i -= d.escdlen
+			sl = len(s)
+			continue
+		}
 	}
 	return s
 }
@@ -210,13 +229,13 @@ func (d dsvi) DeserializeString(s string, tgt interface{}, opt ...int) error {
 	inqt := false
 	idxmap := map[int]string{}
 	for i := 0; i < slen; i++ {
-		if slen > i+d.escdlen && inqt && s[i:i+d.escdlen] == d.escapedDelimiter {
+		if d.escdlen > 0 && slen > i+d.escdlen && inqt && s[i:i+d.escdlen] == d.escapedDelimiter {
 			i += d.escdlen
-		} else if slen > i+d.escslen && s[i:i+d.escslen] == d.escapedSeparator {
+		} else if d.escslen > d.lslen && slen > i+d.escslen && s[i:i+d.escslen] == d.escapedSeparator {
 			i += d.escslen
-		} else if slen > i+d.escolen && s[i:i+d.escolen] == d.escapedOperator {
+		} else if d.escolen > d.folen && slen > i+d.escolen && s[i:i+d.escolen] == d.escapedOperator {
 			i += d.escolen
-		} else if slen > i+d.folen && s[i:i+d.folen] == d.fieldOperator {
+		} else if d.folen > 0 && slen > i+d.folen && s[i:i+d.folen] == d.fieldOperator {
 			inqt = !inqt
 		} else if !inqt && s[i:i+d.fdlen] == d.fieldDelimiter {
 			ss := d.NormalizeString(s[l:i])
