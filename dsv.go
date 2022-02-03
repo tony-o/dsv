@@ -1,56 +1,85 @@
 package dsv
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
-)
-
-type dsvErr struct {
-	err error
-	msg string
-}
-
-var (
-	DSV_DUPLICATE_TAG_IN_STRUCT  = dsvErr{msg: "Struct contains a duplicate tag"}
-	DSV_INVALID_OPTION           = dsvErr{msg: "Invalid option given"}
-	DSV_INVALID_TYPE_FOR_OPTION  = dsvErr{msg: "Invalid option for type"}
-	DSV_INVALID_TARGET_NOT_PTR   = dsvErr{msg: "Invalid target, not a pointer", err: errors.New("Invalid target, not a pointer")}
-	DSV_INVALID_TARGET_NOT_SLICE = dsvErr{msg: "Invalid target, not a *slice", err: errors.New("Invalid target, not a *slice")}
 )
 
 type dsvi struct {
 	fieldDelimiter string
 	lineSeparator  string
 	fieldOperator  string
-	escapeCombined string
 	escapeOperator string
 	parseHeader    bool
 	useCache       bool
 	strictMap      bool
-	stripFieldWS   string
+	stripField     string
+	skipEmptyRow   bool
+	serializers    map[string]func(interface{}) (string, bool)
+	deserializers  map[string]func(string) (interface{}, bool)
+
+	escapedDelimiter string
+	escapedOperator  string
+	escapedSeparator string
 
 	lslen int
 	eolen int
 	folen int
 	fdlen int
-	eclen int
+
+	escdlen int
+	escolen int
+	escslen int
 }
 
-func (e dsvErr) Error() string {
-	if e.err != nil {
-		return fmt.Sprintf("%s: %v", e.msg, e.err)
-	}
-	return e.msg
+type dstring struct {
+	ok    bool
+	value string
+}
+type dbool struct {
+	ok    bool
+	value bool
+}
+type dserial struct {
+	ok    bool
+	value map[string]func(interface{}) (string, bool)
+}
+type ddeserial struct {
+	ok    bool
+	value map[string]func(string) (interface{}, bool)
 }
 
-func (e dsvErr) Is(t error) bool {
-	return t.Error() == e.msg || strings.HasPrefix(t.Error(), e.msg+": ")
+type DSVOpt struct {
+	FieldDelimiter dstring
+	LineSeparator  dstring
+	FieldOperator  dstring
+	EscapeCombined dstring
+	EscapeOperator dstring
+	ParseHeader    dbool
+	UseCache       dbool
+	StrictMap      dbool
+	SkipEmptyRow   dbool
+	StripField     dstring
+	Serializers    dserial
+	Deserializers  ddeserial
 }
 
-func (e dsvErr) enhance(in error) dsvErr {
-	return dsvErr{msg: e.msg, err: in}
+func DString(s string) dstring {
+	return dstring{ok: true, value: s}
+}
+
+func DBool(b bool) dbool {
+	return dbool{ok: true, value: b}
+}
+
+func DDeserial(m map[string]func(string) (interface{}, bool)) ddeserial {
+	return ddeserial{ok: true, value: m}
+}
+
+func DSerial(m map[string]func(interface{}) (string, bool)) dserial {
+	return dserial{ok: true, value: m}
 }
 
 func ref(o interface{}) (map[string]reflect.StructField, reflect.Type, error) {
@@ -76,7 +105,7 @@ func ref(o interface{}) (map[string]reflect.StructField, reflect.Type, error) {
 	return m, t, nil
 }
 
-func NewDSV(options map[string]interface{}) (dsvi, error) {
+func NewDSV(opt DSVOpt) (dsvi, error) {
 	di := dsvi{
 		fieldDelimiter: ",",
 		lineSeparator:  "\n",
@@ -85,99 +114,88 @@ func NewDSV(options map[string]interface{}) (dsvi, error) {
 		parseHeader:    true,
 		useCache:       true,
 		strictMap:      false,
-		stripFieldWS:   " \r\n\t",
+		skipEmptyRow:   true,
+		stripField:     " \r\n\t",
 	}
-	for k, v := range options {
-		if k == "FieldDelimiter" {
-			switch vt := v.(type) {
-			case string:
-				di.fieldDelimiter = v.(string)
-			default:
-				return di, DSV_INVALID_TYPE_FOR_OPTION.enhance(fmt.Errorf("FieldDelimiter got:%T,expected:string", vt))
-			}
-		} else if k == "LineSeparator" {
-			switch vt := v.(type) {
-			case string:
-				di.lineSeparator = v.(string)
-			default:
-				return di, DSV_INVALID_TYPE_FOR_OPTION.enhance(fmt.Errorf("FieldDelimiter got:%T,expected:string", vt))
-			}
-		} else if k == "FieldOperator" {
-			switch vt := v.(type) {
-			case string:
-				di.fieldOperator = "\""
-			default:
-				return di, DSV_INVALID_TYPE_FOR_OPTION.enhance(fmt.Errorf("FieldDelimiter got:%T,expected:string", vt))
-			}
-		} else if k == "EscapeOperator" {
-			switch vt := v.(type) {
-			case string:
-				di.escapeOperator = v.(string)
-			default:
-				return di, DSV_INVALID_TYPE_FOR_OPTION.enhance(fmt.Errorf("FieldDelimiter got:%T,expected:string", vt))
-			}
-		} else if k == "ParseHeader" {
-			switch vt := v.(type) {
-			case bool:
-				di.parseHeader = v.(bool)
-			default:
-				return di, DSV_INVALID_TYPE_FOR_OPTION.enhance(fmt.Errorf("FieldDelimiter got:%T,expected:string", vt))
-			}
-		} else if k == "UseCache" {
-			switch vt := v.(type) {
-			case bool:
-				di.useCache = v.(bool)
-			default:
-				return di, DSV_INVALID_TYPE_FOR_OPTION.enhance(fmt.Errorf("FieldDelimiter got:%T,expected:string", vt))
-			}
-
-		} else if k == "StrictMap" {
-			switch vt := v.(type) {
-			case bool:
-				di.strictMap = v.(bool)
-			default:
-				return di, DSV_INVALID_TYPE_FOR_OPTION.enhance(fmt.Errorf("FieldDelimiter got:%T,expected:string", vt))
-			}
-		} else if k == "StripFieldWS" {
-			switch vt := v.(type) {
-			case string:
-				di.stripFieldWS = v.(string)
-			default:
-				return di, DSV_INVALID_TYPE_FOR_OPTION.enhance(fmt.Errorf("FieldDelimiter got:%T,expected:string", vt))
-			}
-		}
+	if opt.FieldDelimiter.ok {
+		di.fieldDelimiter = opt.FieldDelimiter.value
+	}
+	if opt.LineSeparator.ok {
+		di.lineSeparator = opt.LineSeparator.value
+	}
+	if opt.FieldOperator.ok {
+		di.fieldOperator = opt.FieldOperator.value
+	}
+	if opt.EscapeOperator.ok {
+		di.escapeOperator = opt.EscapeOperator.value
+	}
+	if opt.ParseHeader.ok {
+		di.parseHeader = opt.ParseHeader.value
+	}
+	if opt.UseCache.ok {
+		di.useCache = opt.UseCache.value
+	}
+	if opt.SkipEmptyRow.ok {
+		di.skipEmptyRow = opt.SkipEmptyRow.value
+	}
+	if opt.StrictMap.ok {
+		di.strictMap = opt.StrictMap.value
+	}
+	if opt.StripField.ok {
+		di.stripField = opt.StripField.value
+	}
+	if opt.Serializers.ok {
+		di.serializers = opt.Serializers.value
+	}
+	if opt.Deserializers.ok {
+		di.deserializers = opt.Deserializers.value
 	}
 
-	di.escapeCombined = di.escapeOperator + di.fieldOperator
 	di.lslen = len(di.lineSeparator)
 	di.eolen = len(di.escapeOperator)
 	di.folen = len(di.fieldOperator)
 	di.fdlen = len(di.fieldDelimiter)
-	di.eclen = di.eolen + di.folen
+
+	di.escapedDelimiter = di.escapeOperator + di.fieldDelimiter
+	di.escapedOperator = di.escapeOperator + di.fieldOperator
+	di.escapedSeparator = di.escapeOperator + di.lineSeparator
+	di.escdlen = di.eolen + di.fdlen
+	di.escolen = di.eolen + di.folen
+	di.escslen = di.eolen + di.lslen
 
 	return di, nil
 }
 
+var unescapeNL = regexp.MustCompile("\\\n")
+
 func (d dsvi) NormalizeString(s string) string {
-	if d.stripFieldWS != "" {
-		s = strings.Trim(s, d.stripFieldWS)
+	if d.stripField != "" {
+		s = strings.Trim(s, d.stripField)
 	}
 	sl := len(s)
-	if sl > d.folen && s[0:d.folen] == d.fieldOperator && s[sl-d.folen-1:] == d.fieldOperator {
-		s = s[d.folen : sl-d.folen-1]
+	if sl > d.folen*2 && s[0:d.folen] == d.fieldOperator && s[sl-d.folen:] == d.fieldOperator {
+		s = s[d.folen : sl-d.folen]
+	}
+	sl = len(s)
+	for i := 0; i < sl; i++ {
+		if sl > i+d.escslen && s[i:i+d.escslen] == d.escapedSeparator {
+			s = s[0:i] + d.lineSeparator + s[i+d.escslen:]
+			i -= d.escslen
+			sl = len(s)
+		}
+		// TODO: handle other escapes
 	}
 	return s
 }
 
 func (d dsvi) DeserializeString(s string, tgt interface{}, opt ...int) error {
-	// TODO: make sure i is a slice
 	rs := reflect.ValueOf(tgt)
 	if rs.Kind() != reflect.Ptr {
 		return DSV_INVALID_TARGET_NOT_PTR
 	}
 	rs = rs.Elem()
 	if rs.Kind() != reflect.Slice {
-		return DSV_INVALID_TARGET_NOT_SLICE
+		return DSV_INVALID_TARGET_NOT_SLICE.enhance(fmt.Errorf("got:%s", rs.Kind().String()))
 	}
 	fmap, typ, e := ref(tgt)
 
@@ -191,42 +209,62 @@ func (d dsvi) DeserializeString(s string, tgt interface{}, opt ...int) error {
 	slen := len(s)
 	inqt := false
 	idxmap := map[int]string{}
-	for i := 0; i < len(s); i++ {
-		if slen < i+d.eclen && inqt && s[i:i+d.eclen] == d.escapeCombined {
-			i += d.eclen - 1
-			//TODO: TEST!
-		} else if slen < i+d.folen && s[i:i+d.folen] == d.fieldOperator {
-			inqt = true
+	for i := 0; i < slen; i++ {
+		if slen > i+d.escdlen && inqt && s[i:i+d.escdlen] == d.escapedDelimiter {
+			i += d.escdlen
+		} else if slen > i+d.escslen && s[i:i+d.escslen] == d.escapedSeparator {
+			i += d.escslen
+		} else if slen > i+d.escolen && s[i:i+d.escolen] == d.escapedOperator {
+			i += d.escolen
+		} else if slen > i+d.folen && s[i:i+d.folen] == d.fieldOperator {
+			inqt = !inqt
 		} else if !inqt && s[i:i+d.fdlen] == d.fieldDelimiter {
 			ss := d.NormalizeString(s[l:i])
-			lines[lnlen] = append(lines[lnlen], ss)
-			i += d.fdlen
-			l = i
+			if len(ss) > 0 || !d.skipEmptyRow {
+				lines[lnlen] = append(lines[lnlen], ss)
+			}
+			i += d.fdlen - 1
+			l = i + 1
 			if d.parseHeader && lnlen == 0 {
 				idxmap[len(idxmap)] = ss
 			}
 		} else if !inqt && s[i:i+d.lslen] == d.lineSeparator {
 			ss := d.NormalizeString(s[l:i])
-			lines[lnlen] = append(lines[lnlen], ss)
 			if d.parseHeader && lnlen == 0 {
 				idxmap[len(idxmap)] = ss
 			}
-			lnlen++
-			lines = append(lines, []string{})
-			i += d.lslen
-			l = i
+			if len(ss) > 0 || !d.skipEmptyRow {
+				lines[lnlen] = append(lines[lnlen], ss)
+				lnlen++
+				lines = append(lines, []string{})
+			}
+			i += d.lslen - 1
+			l = i + 1
 		}
 	}
-	lines[lnlen] = append(lines[lnlen], d.NormalizeString(s[l:]))
+	ss := d.NormalizeString(s[l:])
+	if len(ss) > 0 || !d.skipEmptyRow {
+		lines[lnlen] = append(lines[lnlen], ss)
+	}
+	if len(lines[lnlen]) == 0 {
+		lines = lines[:lnlen]
+	}
 
 	offs := -1
 	if !d.parseHeader {
 		offs = 0
 	}
+	if len(lines)+offs <= 0 {
+		return nil
+	}
 	rs.Set(reflect.MakeSlice(reflect.SliceOf(typ), len(lines)+offs, len(lines)+offs))
+	iln := len(idxmap)
 	for i, ln := range lines {
-		if i == 0 && d.parseHeader {
+		if (i == 0 && d.parseHeader) || (d.skipEmptyRow && len(ln) == 0) {
 			continue
+		}
+		if len(ln) != iln && d.strictMap {
+			return DSV_FIELD_NUM_MISMATCH.enhance(fmt.Errorf("StrictMap requires all rows have same number of fields, expected=%d,got=%d", iln, len(ln)))
 		}
 		fp := reflect.New(typ)
 		fv := fp.Elem()
@@ -238,8 +276,7 @@ func (d dsvi) DeserializeString(s string, tgt interface{}, opt ...int) error {
 					func() {
 						defer func() {
 							if r := recover(); r != nil {
-								//TODO: better reporting
-								perr = errors.New(fmt.Sprintf("%v", r))
+								perr = DSV_DESERIALIZE_ERROR.enhance(fmt.Errorf("%v", r))
 							}
 						}()
 						fs.Set(reflect.ValueOf(r))
@@ -247,7 +284,6 @@ func (d dsvi) DeserializeString(s string, tgt interface{}, opt ...int) error {
 					}()
 					if perr != nil {
 						return perr
-						// TODO: CONST this
 					}
 				}
 			}
