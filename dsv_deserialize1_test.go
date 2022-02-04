@@ -68,6 +68,7 @@ type testO struct {
 		Value    interface{}
 	}
 	Data string
+	Map  map[int][]string
 }
 
 func TagTestCmp(i1, i2 interface{}) (bool, string) {
@@ -148,6 +149,12 @@ var tests = []testO{
 			},
 		},
 		Data: "name\temail address\twhatever\nname1\temail1@xyz.com\t1\nname2\temail2@xyz.com\t2\nname3\temail3@xyz.com\t3",
+		Map: map[int][]string{
+			0: []string{"name", "email address", "whatever"},
+			1: []string{"name1", "email1@xyz.com", "1"},
+			2: []string{"name2", "email2@xyz.com", "2"},
+			3: []string{"name3", "email3@xyz.com", "3"},
+		},
 	},
 	{
 		Name: "multiline",
@@ -170,6 +177,10 @@ var tests = []testO{
 break"
 i,am,data,with,"a line
 break"`,
+		Map: map[int][]string{
+			0: []string{"i", "has", "headers", "with", "a line\nbreak"},
+			1: []string{"i", "am", "data", "with", "a line\nbreak"},
+		},
 	},
 	{
 		Name: "escaped multiline",
@@ -190,6 +201,10 @@ break"`,
 		},
 		Data: `i,has,headers,with,a line\` + "\n" + `break
 i,am,data,with,a line\` + "\n" + `break`,
+		Map: map[int][]string{
+			0: []string{"i", "has", "headers", "with", "a line\nbreak"},
+			1: []string{"i", "am", "data", "with", "a line\nbreak"},
+		},
 	},
 	{
 		Name: "skip blank lines",
@@ -215,6 +230,11 @@ i1,has1,headers1,with1,a line1
 
 i2,has2,headers2,with2,a line2
 `,
+		Map: map[int][]string{
+			0: []string{"i", "has", "headers", "with", "a line\nbreak"},
+			1: []string{"i1", "has1", "headers1", "with1", "a line1"},
+			2: []string{"i2", "has2", "headers2", "with2", "a line2"},
+		},
 	},
 	{
 		Name: "one column csv",
@@ -243,6 +263,11 @@ i2
 
 
 `,
+		Map: map[int][]string{
+			0: []string{"i"},
+			1: []string{"i1"},
+			2: []string{"i2"},
+		},
 	},
 	{
 		Name: "empty csv",
@@ -260,6 +285,7 @@ i2
 			Value:    &([]genericCSV{}),
 		},
 		Data: ``,
+		Map:  map[int][]string{},
 	},
 	{
 		Name: "multichar field delimiter, line separator, and escape character",
@@ -282,6 +308,10 @@ i2
 			}),
 		},
 		Data: `iABChasABCheadersABCwith&&&&&&&&&&&iABCamABCdataABC___with ABC and |||___ in the middle___`,
+		Map: map[int][]string{
+			0: []string{"i", "has", "headers", "with"},
+			1: []string{"i", "am", "data", "with ABC and ___ in the middle"},
+		},
 	},
 	{
 		Name: "zero length escape",
@@ -302,6 +332,10 @@ i2
 		},
 		Data: `i
 \hello`,
+		Map: map[int][]string{
+			0: []string{"i"},
+			1: []string{"\\hello"},
+		},
 	},
 	{
 		Name: "zero length escape, no data",
@@ -319,6 +353,7 @@ i2
 			Value:    &([]genericCSV{}),
 		},
 		Data: `i`,
+		Map:  map[int][]string{0: []string{"i"}},
 	},
 	{
 		Name: "zero length escape, data but nothing mapped",
@@ -338,7 +373,8 @@ i2
 			}),
 		},
 		Data: `i\
-a`,
+a`, // note to self: Field1 should be "" because header `i\` doesn't map in Expect but should in the returned `Map`
+		Map: map[int][]string{0: []string{"i\\"}, 1: []string{"a"}},
 	},
 	{
 		Name: "strange delimiter eats correctly",
@@ -360,6 +396,11 @@ a`,
 			}),
 		},
 		Data: `i0has&\00\0\0\0\0\0\0&o10o2`,
+		Map: map[int][]string{
+			0: []string{"i", "has"},
+			1: []string{"0", "000000"},
+			2: []string{"o1", "o2"},
+		},
 	},
 	{
 		Name: "custom deserializers",
@@ -389,6 +430,12 @@ a`,
 			},
 		},
 		Data: "id,name\na,name1\n5,name2\n-10,name3\n",
+		Map: map[int][]string{
+			0: []string{"id", "name"},
+			1: []string{"a", "name1"},
+			2: []string{"5", "name2"},
+			3: []string{"-10", "name3"},
+		},
 	},
 }
 
@@ -423,6 +470,25 @@ func TestDSV_Deserialize_TagTestGoodOpts(t *testing.T) {
 			if pass, errstr := tst.Cmp(tst.Expect.Value, tst.Into); !pass {
 				t2.Logf("%s failed: cmp fails with message: %s", tst.Name, errstr)
 				t2.FailNow()
+			}
+			if len(tst.Map) > 0 {
+				ms, e := d.DeserializeMapIndex(tst.Data)
+				if e != nil {
+					t2.Logf("%s failed: deserializing to map failed %v", tst.Name, e)
+					t2.FailNow()
+				}
+				if len(ms) != len(tst.Map) {
+					t2.Logf("%s failed: deserializing to map count mismatch expected=%d,got=%d", tst.Name, len(tst.Map), len(ms))
+					t2.FailNow()
+				}
+				for i, m := range ms {
+					for j, tm := range tst.Map[i] {
+						if m[j] != tm {
+							t2.Logf("%s failed: %d,%d data mismatch expected=%q,got=%q", tst.Name, i, j, tm, m[j])
+							t2.FailNow()
+						}
+					}
+				}
 			}
 		})
 	}

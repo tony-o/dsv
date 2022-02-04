@@ -218,6 +218,56 @@ func (d dsvi) NormalizeString(s []byte) []byte {
 	return s
 }
 
+func (d dsvi) DeserializeMapIndex(s string) (map[int][]string, error) {
+	m := map[int][]string{}
+
+	rmap := 0
+	inqt := false
+	l := 0
+	slen := len(s)
+	ed := string(d.escapedDelimiter)
+	es := string(d.escapedSeparator)
+	eo := string(d.escapedOperator)
+	fo := string(d.fieldOperator)
+	fd := string(d.fieldDelimiter)
+	ls := string(d.lineSeparator)
+	for i := 0; i < slen; i++ {
+		if d.escdlen > 0 && slen > i+d.escdlen && s[i:i+d.escdlen] == ed {
+			i += d.escdlen - 1
+		} else if d.escslen > d.lslen && slen > i+d.escslen && s[i:i+d.escslen] == es {
+			i += d.escslen - 1
+		} else if d.escolen > d.folen && slen > i+d.escolen && s[i:i+d.escolen] == eo {
+			i += d.escolen - 1
+		} else if d.folen > 0 && slen > i+d.folen && s[i:i+d.folen] == fo {
+			inqt = !inqt
+		} else if !inqt && s[i:i+d.fdlen] == fd {
+			ss := d.NormalizeString([]byte(s[l:i]))
+			if len(ss) > 0 || !d.skipEmptyRow {
+				m[rmap] = append(m[rmap], string(ss))
+			}
+			i += d.fdlen - 1
+			l = i + 1
+		} else if !inqt && s[i:i+d.lslen] == ls {
+			ss := d.NormalizeString([]byte(s[l:i]))
+			if len(ss) > 0 || !d.skipEmptyRow {
+				m[rmap] = append(m[rmap], string(ss))
+				rmap++
+				m[rmap] = []string{}
+			}
+			i += d.lslen - 1
+			l = i + 1
+		}
+	}
+	ss := d.NormalizeString([]byte(s[l:]))
+	if len(ss) > 0 || !d.skipEmptyRow {
+		m[rmap] = append(m[rmap], string(ss))
+	}
+	if len(m[rmap]) == 0 {
+		delete(m, rmap)
+	}
+	return m, nil
+}
+
 func (d dsvi) Deserialize(s []byte, tgt interface{}) error {
 	rs := reflect.ValueOf(tgt)
 	if rs.Kind() != reflect.Ptr {
