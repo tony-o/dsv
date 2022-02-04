@@ -3,20 +3,21 @@ package dsv_test
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 
 	dsv "github.com/tony-o/dsv"
 )
 
 type TagTest struct {
-	Id    int    `csv:"-"`
+	Id    int    `csv:"id"`
 	Name  string `csv:"name"`
 	Email string `csv:"email address"`
 }
 
 type TagTestArray []TagTest
 
-func TestDSV_TagTestGood(t *testing.T) {
+func TestDSV_Deserialize_TagTestGood(t *testing.T) {
 	a := `name, email address, whatever
 name1, email1@xyz.com, 1
 name2, email2@xyz.com, 2
@@ -26,7 +27,7 @@ name3, email3@xyz.com, 3`
 		t.FailNow()
 	}
 	tts := TagTestArray{}
-	e = d.DeserializeString(a, &tts)
+	e = d.Deserialize([]byte(a), &tts)
 	if e != nil {
 		t.FailNow()
 	}
@@ -339,9 +340,59 @@ i2
 		Data: `i\
 a`,
 	},
+	{
+		Name: "strange delimiter eats correctly",
+		Dsvo: dsv.DSVOpt{
+			FieldDelimiter: dsv.DString("0"),
+			LineSeparator:  dsv.DString("&"),
+		},
+		Into: &([]genericCSV{}),
+		Len:  func(i interface{}) int { return len(*(i.(*[]genericCSV))) },
+		Cmp:  GenericCSVCmp,
+		Expect: struct {
+			RowCount int
+			Value    interface{}
+		}{
+			RowCount: 2,
+			Value: &([]genericCSV{
+				{Field1: "0", Field2: "000000"},
+				{Field1: "o1", Field2: "o2"},
+			}),
+		},
+		Data: `i0has&\00\0\0\0\0\0\0&o10o2`,
+	},
+	{
+		Name: "custom deserializers",
+		Dsvo: dsv.DSVOpt{
+			Deserializers: dsv.DDeserial(map[string]func(string, []byte) (interface{}, bool){
+				"int": func(s string, _ []byte) (interface{}, bool) {
+					i, e := strconv.Atoi(s)
+					if e != nil {
+						return -1, true
+					}
+					return i * 2, true
+				},
+			}),
+		},
+		Into: &(TagTestArray{}),
+		Len:  func(i interface{}) int { return len(*(i.(*TagTestArray))) },
+		Cmp:  TagTestCmp,
+		Expect: struct {
+			RowCount int
+			Value    interface{}
+		}{
+			RowCount: 3,
+			Value: &TagTestArray{
+				TagTest{Id: -1, Name: "name1"},
+				TagTest{Id: 10, Name: "name2"},
+				TagTest{Id: -20, Name: "name3"},
+			},
+		},
+		Data: "id,name\na,name1\n5,name2\n-10,name3\n",
+	},
 }
 
-func TestDSV_TagTestGoodOpts(t *testing.T) {
+func TestDSV_Deserialize_TagTestGoodOpts(t *testing.T) {
 	for _, tst := range tests {
 		t.Run(tst.Name, func(t2 *testing.T) {
 			d, e := dsv.NewDSV(tst.Dsvo)
@@ -351,11 +402,11 @@ func TestDSV_TagTestGoodOpts(t *testing.T) {
 			}
 			switch tst.Into.(type) {
 			case *[]TagTest:
-				e = d.DeserializeString(tst.Data, (tst.Into.(*[]TagTest)))
+				e = d.Deserialize([]byte(tst.Data), (tst.Into.(*[]TagTest)))
 			case *TagTestArray:
-				e = d.DeserializeString(tst.Data, (tst.Into.(*TagTestArray)))
+				e = d.Deserialize([]byte(tst.Data), (tst.Into.(*TagTestArray)))
 			case *[]genericCSV:
-				e = d.DeserializeString(tst.Data, (tst.Into.(*[]genericCSV)))
+				e = d.Deserialize([]byte(tst.Data), (tst.Into.(*[]genericCSV)))
 			default:
 				t2.Logf("%s failed: invalid type %T", tst.Name, tst.Into)
 				t2.FailNow()
@@ -377,7 +428,7 @@ func TestDSV_TagTestGoodOpts(t *testing.T) {
 	}
 }
 
-func TestDSV_TagTestTypeReflection(t *testing.T) {
+func TestDSV_Deserialize_TagTestTypeReflection(t *testing.T) {
 	types := []interface{}{TagTest{}, &TagTest{}, TagTestArray{}, &TagTestArray{}}
 	exp := []interface{}{dsv.DSV_INVALID_TARGET_NOT_PTR, dsv.DSV_INVALID_TARGET_NOT_SLICE, dsv.DSV_INVALID_TARGET_NOT_PTR, true}
 	for i, ty := range types {
@@ -386,7 +437,7 @@ func TestDSV_TagTestTypeReflection(t *testing.T) {
 			if e != nil {
 				t2.FailNow()
 			}
-			e = d.DeserializeString("test", ty)
+			e = d.Deserialize([]byte("test"), ty)
 			switch exp[i].(type) {
 			case error:
 				if !errors.Is(e, exp[i].(error)) {
@@ -409,13 +460,13 @@ type BadTagTest struct {
 	Email string `csv:"name"`
 }
 
-func TestDSV_TestBad(t *testing.T) {
+func TestDSV_Deserialize_TestBad(t *testing.T) {
 	a := "ehlo"
 	d, e := dsv.NewDSV(dsv.DSVOpt{})
 	if e != nil {
 		t.FailNow()
 	}
-	e = d.DeserializeString(a, &[]BadTagTest{})
+	e = d.Deserialize([]byte(a), &[]BadTagTest{})
 	if !errors.Is(e, dsv.DSV_DUPLICATE_TAG_IN_STRUCT) {
 		t.Errorf("Duplicate tags should return an error, got: %v", e)
 		t.FailNow()
