@@ -463,7 +463,7 @@ func TestDSV_Deserialize_TagTestGoodOpts(t *testing.T) {
 				t2.FailNow()
 			}
 			if tst.Len(tst.Into) != tst.Expect.RowCount {
-				fmt.Printf("tst.Into=%q\n", tst.Into)
+				fmt.Printf("tst.Into=%v\n", tst.Into)
 				t2.Logf("%s failed: row count expected=%d,got=%d", tst.Name, tst.Expect.RowCount, tst.Len(tst.Into))
 				t2.FailNow()
 			}
@@ -537,4 +537,389 @@ func TestDSV_Deserialize_TestBad(t *testing.T) {
 		t.Errorf("Duplicate tags should return an error, got: %v", e)
 		t.FailNow()
 	}
+}
+
+type InterestPaymentMonitoringRecord struct {
+	Address                                 string `csv:"Address"`
+	Unit                                    string `csv:"Unit"`
+	City                                    string `csv:"City"`
+	State                                   string `csv:"State"`
+	Postal                                  string `csv:"Postal"`
+	County                                  string `csv:"County Name"`
+	LoanStatus                              string `csv:"Loan Status"`
+	BorrowerName                            string `csv:"Borrower Name"`
+	WarmBodyName                            string `csv:"Warm Body"`
+	DefaultStatus                           string `csv:"Default Status"`
+	PayoffStatus                            string `csv:"Payoff Status"`
+	Status                                  string `csv:"Status"`
+	Owner                                   string `csv:"Owner"`
+	PoolSale                                string `csv:"Pool Sale"`
+	AlphaFlowLoanID                         string `csv:"AlphaFlow Loan ID"`
+	Originator                              string `csv:"Originator"`
+	OriginatorLoanID                        string `csv:"Originator Loan ID"`
+	SubservicerLoanID                       string `csv:"Subservicer Loan ID"`
+	Subservicer                             string `csv:"SubServicer"`
+	ServiceTransfer                         string `csv:"Service Transfer"`
+	BoardingStatus                          string `csv:"BoardingStatus"`
+	DateBoardedWithServicer                 string `csv:"Date Boarded w/ servicer"`
+	BoardingAgingDaysFromPurchaseDate       string `csv:"Boarding Aging Days from Purchase Date"`
+	ReasonForBoardingDelay                  string `csv:"Reason for Boarding Delay if > 7 Days (From Date Sent to Servicer to Live)"`
+	InterestOnTotalLoanAmount               string `csv:"Interest on Total Loan Amount"`
+	TotalInterestEscrow                     string `csv:"Total Interest Escrow"`
+	NetInterestReserve                      string `csv:"Net Interest Reserve (Note: Neg. Offset to Net to Lender)"`
+	CurrentInterestReserve                  string `csv:"Current Interest Reserve"`
+	OutstandingPrincipalBalanceAtAFPurchase string `csv:"Outstanding principal balance at AF purchase"`
+	CurrentPrincipalBalanceFundsFromAf      string `csv:"Current principal balance (funds from AF/investor)"`
+	CurrentPrincipalBalanceFundsToBorrower  string `csv:"Current principal balance (funds to borrower)"`
+	TotalLoanAmount                         string `csv:"Total Loan Amount"`
+	EndingPrincipalBalance                  string `csv:"Ending Principal Balance"`
+	ServicerUPB                             string `csv:"Servicer UPB"`
+	OriginationDate                         string `csv:"Origination Date"`
+	PurchaseDate                            string `csv:"Purchase Date"`
+	FirstPaymentDueDateToServicer           string `csv:"First Payment Due Date to Servicer"`
+	FirstPaymentDate                        string `csv:"First payment date"`
+	PreviousPaymentDate                     string `csv:"Previous Payment Date"`
+	NextPaymentDueDate                      string `csv:"Next Payment Due Date"`
+	PaymentAmount                           string `csv:"Payment Amount"`
+	InterestReserveExpirationDate           string `csv:"Interest Reserve Expiration Date"`
+	PaymentGraceDays                        string `csv:"Payment Grace Days"`
+	OriginalMaturityDate                    string `csv:"Original Maturity Date"`
+	MaturityDate                            string `csv:"MaturityDate"`
+	ExtendedToMaturityDate                  string `csv:"Extended to Maturity Date"`
+	DaysToMaturity                          string `csv:"Days to Maturity"`
+	MaturityBucket                          string `csv:"Maturity Bucket"`
+	PayoffFundsReceivedByServicerDate       string `csv:"Payoff Funds Received By Servicer Date"`
+	MonthsToPayoffFromPurchaseDate          string `csv:"Months to Payoff From Purchase Date"`
+	InsuranceStatus                         string `csv:"Insurance Status"`
+	TaxStatus                               string `csv:"Tax Status"`
+	PMTStatus                               string `csv:"PMT Status"`
+	PMTBucket                               string `csv:"PMT Bucket"`
+	PMTTracking                             string `csv:"PMT Tracking"`
+	DaysPastDue                             string `csv:"Days Past Due"`
+	ACHStatus                               string `csv:"ACH Status"`
+	ACHSteps                                string `csv:"ACH Steps"`
+	RFD                                     string `csv:"RFD"`
+	PctOfCompletion                         string `csv:"% of Completion"`
+	ProjectStage                            string `csv:"Project Stage"`
+	Comments                                string `csv:"Comments"`
+	RehabFundsDisbursed                     string `csv:"Rehab Funds Disbursed"`
+	ConstructionReserve                     string `csv:"Construction Reserve"`
+	CorrectFirstPaymentDate                 string `csv:"Correct First Payment Date"`
+	Check                                   string `csv:"Check"`
+	Blank                                   string `csv:""`
+	UnappliedPayment                        string `csv:"Unapplied Payment"`
+	UpdatedValuation                        string `csv:"Updated Valuation"`
+	ValuationDate                           string `csv:"Valuation Date"`
+	InitialAiv                              string `csv:"Initial AIV"`
+	Arv                                     string `csv:"ARV"`
+	LoanPurpose                             string `csv:"Loan Purpose"`
+	GrossRate                               string `csv:"Gross Rate %"`
+	NetRateToAlphaFlow                      string `csv:"Net Rate to AlphaFlow"`
+	BegEscrowDate                           string `csv:"Beg Escrow Date"`
+	EndEscrowDate                           string `csv:"End Escrow Date"`
+	DateSoldToInvestor                      string `csv:"Date Sold to Investor"`
+	NetToPurchaserEachMonth                 string `csv:"Net to Purchaser Each Month"`
+	NetToLenderEachMonth                    string `csv:"Net to Lender Each Month"`
+	InitialLoanAmount                       string `csv:"Initial Loan Amount at origination"`
+	OriginalTerm                            string `csv:"Original term (months)"`
+	ERecordable                             string `csv:"E-Recordable"`
+	InterestPerDiem                         string `csv:"Interest Per Diem"`
+	TradeGroup                              string `csv:"Loan Trade Group"`
+	BuyTradeGroup                           string `csv:"Buy Trade Group"`
+	SellTradeGroup                          string `csv:"Sell Trade Group"`
+	Buyer                                   string `csv:"Buyer"`
+	InterestAccrualMethod                   string `csv:"Interest Accrual Method"`
+}
+
+type InterestPaymentMonitoringRecords []InterestPaymentMonitoringRecord
+
+func TestDSV_RealData(tt *testing.T) {
+	data := `Status,ARV,Net to Purchaser Each Month,Address,Total Loan Amount,Next Payment Due Date,Gross Rate %,Interest Per Diem,Postal,Current principal balance (funds to borrower),Origination Date,Initial AIV,Net to Lender Each Month,Original term (months),E-Recordable,Borrower Name,MaturityDate,Days Past Due,Correct First Payment Date,Loan Purpose,Date Boarded w/ servicer,Servicer UPB,Original Maturity Date,PMT Tracking,Loan Trade Group,City,Pool Sale,Subservicer Loan ID,SubServicer,Outstanding principal balance at AF purchase,Maturity Bucket,Construction Reserve,Sell Trade Group,Purchase Date,Extended to Maturity Date,Insurance Status,ACH Steps,Comments,State,Default Status,Payoff Status,AlphaFlow Loan ID,Current Interest Reserve,Payment Grace Days,Days to Maturity,Payoff Funds Received By Servicer Date,RFD,Loan Status,Originator,Total Interest Escrow,Ending Principal Balance,First payment date,Months to Payoff From Purchase Date,Beg Escrow Date,End Escrow Date,Reason for Boarding Delay if > 7 Days (From Date Sent to Servicer to Live),Interest on Total Loan Amount,% of Completion,Project Stage,Updated Valuation,BoardingStatus,Boarding Aging Days from Purchase Date,Tax Status,Unapplied Payment,Initial Loan Amount at origination,Unit,Payment Amount,Interest Reserve Expiration Date,PMT Status,Valuation Date,Buy Trade Group,Service Transfer,ACH Status,Rehab Funds Disbursed,Date Sold to Investor,Interest Accrual Method,County Name,Warm Body,Owner,Originator Loan ID,Net Interest Reserve (Note: Neg. Offset to Net to Lender),Previous Payment Date,Current principal balance (funds from AF/investor),First Payment Due Date to Servicer,PMT Bucket,Check,Net Rate to AlphaFlow,Buyer
+Purchased,$600,000.00,,352 Angier Ave Northeast,$428,760.00,,10.700%,,30312,$216,795.00,2018-12-14,$460,000.00,,11,,Delimited LLC,,,,Value Add,,,2019-12-13,,Trade 1A,Atlanta,,,Cohen,$216,795.00,Expired,$211,965.00,Trade 1A,2018-12-07,2019-12-13,,,,GA,,,0e43abe1-5a6d-43f6-bd03-fba310f627a6,,,-784,,,,LendLendLend,$0.00,,2019-02-01,,2018-12-14,,,Yes,,,,,,,,$216,795.00,,,,,2018-12-07,Trade 1,,,$0.00,,30/360,,Frank Bloom,,1972321234,,,$428,760.00,,,,,Blackstone
+Sold to investor,$600,000.00,,352 Angier Ave Northeast,$428,760.00,,10.700%,,30312,$216,795.00,2018-12-14,$460,000.00,,11,,Delimited LLC,,,,Value Add,,,2019-12-13,,,Atlanta,,,,$216,795.00,Expired,$211,965.00,,2018-12-01,2019-12-13,,,,GA,,,0e43abe1-5a6d-43f6-bd03-fba310f627a7,,,-784,,,,LendLendLend,$0.00,,2019-02-01,,2018-12-14,,,Yes,,,,,,,,$216,795.00,,,,,2018-12-07,,,,$0.00,,30/360,,Frank Bloom,,1972321234,,,$428,760.00,,,,,
+Purchased,$215,000.00,,6884 NW 30th Ave,$139,750.00,,9.990%,,33309,$139,750.00,2018-11-14,,,12,,Inspiron LLC,,,,Refinance,,,2019-12-01,,Trade 2A,Fort Lauderdale,,,FCI,$139,750.00,Expired,$0.00,Trade 2A,2018-12-01,2019-12-01,,,,FL,,,e09bec63-f065-4b46-9cd4-34152c16d8c2,,,-796,,,,LendLendLend,$0.00,,2019-01-01,,2018-11-14,,,,,,,,,,,$139,750.00,,,,,,Trade 2,,,$0.00,,30/360,,Moche Baruh,,1825626346,,,$139,750.00,,,,,Jefferies Financial Group
+`
+	d := dsv.NewDSVMust(dsv.DSVOpt{})
+
+	records := &InterestPaymentMonitoringRecords{}
+	err := d.Deserialize([]byte(data), records)
+	if err != nil {
+		tt.Logf("deserialize err: %v", err)
+		tt.FailNow()
+	}
+	if len(*records) != 3 {
+		tt.Logf("failure: row length expected=3,got=%d", len(*records))
+		tt.FailNow()
+	}
+}
+
+func ipmrCmp(a, b InterestPaymentMonitoringRecord) bool {
+	if a.Address != b.Address {
+		return false
+	}
+	if a.Unit != b.Unit {
+		return false
+	}
+	if a.City != b.City {
+		return false
+	}
+	if a.State != b.State {
+		return false
+	}
+	if a.Postal != b.Postal {
+		return false
+	}
+	if a.County != b.County {
+		return false
+	}
+	if a.LoanStatus != b.LoanStatus {
+		return false
+	}
+	if a.BorrowerName != b.BorrowerName {
+		return false
+	}
+	if a.WarmBodyName != b.WarmBodyName {
+		return false
+	}
+	if a.DefaultStatus != b.DefaultStatus {
+		return false
+	}
+	if a.PayoffStatus != b.PayoffStatus {
+		return false
+	}
+	if a.Status != b.Status {
+		return false
+	}
+	if a.Owner != b.Owner {
+		return false
+	}
+	if a.PoolSale != b.PoolSale {
+		return false
+	}
+	if a.AlphaFlowLoanID != b.AlphaFlowLoanID {
+		return false
+	}
+	if a.Originator != b.Originator {
+		return false
+	}
+	if a.OriginatorLoanID != b.OriginatorLoanID {
+		return false
+	}
+	if a.SubservicerLoanID != b.SubservicerLoanID {
+		return false
+	}
+	if a.Subservicer != b.Subservicer {
+		return false
+	}
+	if a.ServiceTransfer != b.ServiceTransfer {
+		return false
+	}
+	if a.BoardingStatus != b.BoardingStatus {
+		return false
+	}
+	if a.DateBoardedWithServicer != b.DateBoardedWithServicer {
+		return false
+	}
+	if a.BoardingAgingDaysFromPurchaseDate != b.BoardingAgingDaysFromPurchaseDate {
+		return false
+	}
+	if a.ReasonForBoardingDelay != b.ReasonForBoardingDelay {
+		return false
+	}
+	if a.InterestOnTotalLoanAmount != b.InterestOnTotalLoanAmount {
+		return false
+	}
+	if a.TotalInterestEscrow != b.TotalInterestEscrow {
+		return false
+	}
+	if a.NetInterestReserve != b.NetInterestReserve {
+		return false
+	}
+	if a.CurrentInterestReserve != b.CurrentInterestReserve {
+		return false
+	}
+	if a.OutstandingPrincipalBalanceAtAFPurchase != b.OutstandingPrincipalBalanceAtAFPurchase {
+		return false
+	}
+	if a.CurrentPrincipalBalanceFundsFromAf != b.CurrentPrincipalBalanceFundsFromAf {
+		return false
+	}
+	if a.CurrentPrincipalBalanceFundsToBorrower != b.CurrentPrincipalBalanceFundsToBorrower {
+		return false
+	}
+	if a.TotalLoanAmount != b.TotalLoanAmount {
+		return false
+	}
+	if a.EndingPrincipalBalance != b.EndingPrincipalBalance {
+		return false
+	}
+	if a.ServicerUPB != b.ServicerUPB {
+		return false
+	}
+	if a.OriginationDate != b.OriginationDate {
+		return false
+	}
+	if a.PurchaseDate != b.PurchaseDate {
+		return false
+	}
+	if a.FirstPaymentDueDateToServicer != b.FirstPaymentDueDateToServicer {
+		return false
+	}
+	if a.FirstPaymentDate != b.FirstPaymentDate {
+		return false
+	}
+	if a.PreviousPaymentDate != b.PreviousPaymentDate {
+		return false
+	}
+	if a.NextPaymentDueDate != b.NextPaymentDueDate {
+		return false
+	}
+	if a.PaymentAmount != b.PaymentAmount {
+		return false
+	}
+	if a.InterestReserveExpirationDate != b.InterestReserveExpirationDate {
+		return false
+	}
+	if a.PaymentGraceDays != b.PaymentGraceDays {
+		return false
+	}
+	if a.OriginalMaturityDate != b.OriginalMaturityDate {
+		return false
+	}
+	if a.MaturityDate != b.MaturityDate {
+		return false
+	}
+	if a.ExtendedToMaturityDate != b.ExtendedToMaturityDate {
+		return false
+	}
+	if a.DaysToMaturity != b.DaysToMaturity {
+		return false
+	}
+	if a.MaturityBucket != b.MaturityBucket {
+		return false
+	}
+	if a.PayoffFundsReceivedByServicerDate != b.PayoffFundsReceivedByServicerDate {
+		return false
+	}
+	if a.MonthsToPayoffFromPurchaseDate != b.MonthsToPayoffFromPurchaseDate {
+		return false
+	}
+	if a.InsuranceStatus != b.InsuranceStatus {
+		return false
+	}
+	if a.TaxStatus != b.TaxStatus {
+		return false
+	}
+	if a.PMTStatus != b.PMTStatus {
+		return false
+	}
+	if a.PMTBucket != b.PMTBucket {
+		return false
+	}
+	if a.PMTTracking != b.PMTTracking {
+		return false
+	}
+	if a.DaysPastDue != b.DaysPastDue {
+		return false
+	}
+	if a.ACHStatus != b.ACHStatus {
+		return false
+	}
+	if a.ACHSteps != b.ACHSteps {
+		return false
+	}
+	if a.RFD != b.RFD {
+		return false
+	}
+	if a.PctOfCompletion != b.PctOfCompletion {
+		return false
+	}
+	if a.ProjectStage != b.ProjectStage {
+		return false
+	}
+	if a.Comments != b.Comments {
+		return false
+	}
+	if a.RehabFundsDisbursed != b.RehabFundsDisbursed {
+		return false
+	}
+	if a.ConstructionReserve != b.ConstructionReserve {
+		return false
+	}
+	if a.CorrectFirstPaymentDate != b.CorrectFirstPaymentDate {
+		return false
+	}
+	if a.Check != b.Check {
+		return false
+	}
+	if a.Blank != b.Blank {
+		return false
+	}
+	if a.UnappliedPayment != b.UnappliedPayment {
+		return false
+	}
+	if a.UpdatedValuation != b.UpdatedValuation {
+		return false
+	}
+	if a.ValuationDate != b.ValuationDate {
+		return false
+	}
+	if a.InitialAiv != b.InitialAiv {
+		return false
+	}
+	if a.Arv != b.Arv {
+		return false
+	}
+	if a.LoanPurpose != b.LoanPurpose {
+		return false
+	}
+	if a.GrossRate != b.GrossRate {
+		return false
+	}
+	if a.NetRateToAlphaFlow != b.NetRateToAlphaFlow {
+		return false
+	}
+	if a.BegEscrowDate != b.BegEscrowDate {
+		return false
+	}
+	if a.EndEscrowDate != b.EndEscrowDate {
+		return false
+	}
+	if a.DateSoldToInvestor != b.DateSoldToInvestor {
+		return false
+	}
+	if a.NetToPurchaserEachMonth != b.NetToPurchaserEachMonth {
+		return false
+	}
+	if a.NetToLenderEachMonth != b.NetToLenderEachMonth {
+		return false
+	}
+	if a.InitialLoanAmount != b.InitialLoanAmount {
+		return false
+	}
+	if a.OriginalTerm != b.OriginalTerm {
+		return false
+	}
+	if a.ERecordable != b.ERecordable {
+		return false
+	}
+	if a.InterestPerDiem != b.InterestPerDiem {
+		return false
+	}
+	if a.TradeGroup != b.TradeGroup {
+		return false
+	}
+	if a.BuyTradeGroup != b.BuyTradeGroup {
+		return false
+	}
+	if a.SellTradeGroup != b.SellTradeGroup {
+		return false
+	}
+	if a.Buyer != b.Buyer {
+		return false
+	}
+	if a.InterestAccrualMethod != b.InterestAccrualMethod {
+		return false
+	}
+	return true
 }

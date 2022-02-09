@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
-	"regexp"
 )
 
 type dsvi struct {
@@ -197,8 +196,6 @@ func NewDSV(opt DSVOpt) (dsvi, error) {
 	return di, nil
 }
 
-var unescapeNL = regexp.MustCompile("\\\n")
-
 func (d dsvi) NormalizeString(s []byte) []byte {
 	if len(d.stripField) != 0 {
 		s = bytes.Trim(s, string(d.stripField))
@@ -231,6 +228,7 @@ func (d dsvi) DeserializeMapIndex(s string) (map[int][]string, error) {
 	fo := string(d.fieldOperator)
 	fd := string(d.fieldDelimiter)
 	ls := string(d.lineSeparator)
+	ol := l
 	for i := 0; i < slen; i++ {
 		if d.escdlen > 0 && slen > i+d.escdlen && s[i:i+d.escdlen] == ed {
 			i += d.escdlen - 1
@@ -242,24 +240,28 @@ func (d dsvi) DeserializeMapIndex(s string) (map[int][]string, error) {
 			inqt = !inqt
 		} else if !inqt && s[i:i+d.fdlen] == fd {
 			ss := d.NormalizeString([]byte(s[l:i]))
-			if len(ss) > 0 || !d.skipEmptyRow {
-				m[rmap] = append(m[rmap], string(ss))
-			}
+			m[rmap] = append(m[rmap], string(ss))
+			//fmt.Printf("l=%d,i=%d\n", l, i)
 			i += d.fdlen - 1
 			l = i + 1
 		} else if !inqt && s[i:i+d.lslen] == ls {
 			ss := d.NormalizeString([]byte(s[l:i]))
-			if len(ss) > 0 || !d.skipEmptyRow {
-				m[rmap] = append(m[rmap], string(ss))
+			m[rmap] = append(m[rmap], string(ss))
+			//fmt.Printf("l=%d,i=%d\n", l, i)
+			if ol <= i-d.lslen || !d.skipEmptyRow {
+				//	fmt.Printf("m[rmap] = m[%d] = %+v :c=%d\n\n", rmap, m[rmap], len(m[rmap]))
 				rmap++
+				m[rmap] = []string{}
+			} else {
 				m[rmap] = []string{}
 			}
 			i += d.lslen - 1
 			l = i + 1
+			ol = l
 		}
 	}
 	ss := d.NormalizeString([]byte(s[l:]))
-	if len(ss) > 0 || !d.skipEmptyRow {
+	if ol <= slen-d.lslen || !d.skipEmptyRow {
 		m[rmap] = append(m[rmap], string(ss))
 	}
 	if len(m[rmap]) == 0 {
@@ -278,69 +280,29 @@ func (d dsvi) Deserialize(s []byte, tgt interface{}) error {
 		return DSV_INVALID_TARGET_NOT_SLICE.enhance(fmt.Errorf("got:%s", rs.Kind().String()))
 	}
 	fmap, typ, e := ref(tgt)
-
 	if e != nil {
 		return e
 	}
 
-	lines := [][][]byte{[][]byte{}}
-	l := 0
-	lnlen := 0
-	slen := len(s)
-	inqt := false
-	idxmap := map[int]string{}
-	for i := 0; i < slen; i++ {
-		if d.escdlen > 0 && slen > i+d.escdlen && bytes.Compare(s[i:i+d.escdlen], d.escapedDelimiter) == 0 {
-			i += d.escdlen - 1
-		} else if d.escslen > d.lslen && slen > i+d.escslen && bytes.Compare(s[i:i+d.escslen], d.escapedSeparator) == 0 {
-			i += d.escslen - 1
-		} else if d.escolen > d.folen && slen > i+d.escolen && bytes.Compare(s[i:i+d.escolen], d.escapedOperator) == 0 {
-			i += d.escolen - 1
-		} else if d.folen > 0 && slen > i+d.folen && bytes.Compare(s[i:i+d.folen], d.fieldOperator) == 0 {
-			inqt = !inqt
-		} else if !inqt && bytes.Compare(s[i:i+d.fdlen], d.fieldDelimiter) == 0 {
-			ss := d.NormalizeString(s[l:i])
-			if len(ss) > 0 || !d.skipEmptyRow {
-				lines[lnlen] = append(lines[lnlen], ss)
-			}
-			i += d.fdlen - 1
-			l = i + 1
-			if d.parseHeader && lnlen == 0 {
-				idxmap[len(idxmap)] = string(ss)
-			}
-		} else if !inqt && bytes.Compare(s[i:i+d.lslen], d.lineSeparator) == 0 {
-			ss := d.NormalizeString(s[l:i])
-			if d.parseHeader && lnlen == 0 {
-				idxmap[len(idxmap)] = string(ss)
-			}
-			if len(ss) > 0 || !d.skipEmptyRow {
-				lines[lnlen] = append(lines[lnlen], ss)
-				lnlen++
-				lines = append(lines, [][]byte{})
-			}
-			i += d.lslen - 1
-			l = i + 1
-		}
+	lineMap, err := d.DeserializeMapIndex(string(s))
+	if err != nil {
+		return err
 	}
-	ss := d.NormalizeString(s[l:])
-	if len(ss) > 0 || !d.skipEmptyRow {
-		lines[lnlen] = append(lines[lnlen], ss)
-	}
-	if len(lines[lnlen]) == 0 {
-		lines = lines[:lnlen]
-	}
+	lineCount := len(lineMap)
 
-	offs := -1
-	if !d.parseHeader {
-		offs = 0
+	offs := 0
+	if d.parseHeader {
+		offs = -1
 	}
-	if len(lines)+offs <= 0 {
+	if lineCount+offs <= 0 {
 		return nil
 	}
-	rs.Set(reflect.MakeSlice(reflect.SliceOf(typ), len(lines)+offs, len(lines)+offs))
-	iln := len(idxmap)
-	for i, ln := range lines {
-		if (i == 0 && d.parseHeader) || (d.skipEmptyRow && len(ln) == 0) {
+	iln := len(lineMap[0])
+	rs.Set(reflect.MakeSlice(reflect.SliceOf(typ), lineCount+offs, lineCount+offs))
+	rowIndex := 0
+	for i := 0 + (-1 * offs); i < lineCount; i++ {
+		ln := lineMap[i]
+		if d.skipEmptyRow && len(ln) == 0 {
 			continue
 		}
 		if len(ln) != iln && d.strictMap {
@@ -349,31 +311,44 @@ func (d dsvi) Deserialize(s []byte, tgt interface{}) error {
 		fp := reflect.New(typ)
 		fv := fp.Elem()
 		for j, r := range ln {
-			if d.parseHeader && i > 0 {
-				fs := fv.FieldByName(fmap[idxmap[j]].Name)
-				if fs.IsValid() && fs.CanSet() {
-					var perr error = nil
-					func() {
-						defer func() {
-							if r := recover(); r != nil {
-								perr = DSV_DESERIALIZE_ERROR.enhance(fmt.Errorf("%v", r))
-							}
-						}()
-						if f, okgo := d.deserializers[fs.Type().Name()]; okgo {
-							v, _ := f(string(r), r)
-							fs.Set(reflect.ValueOf(v))
-						} else {
-							fs.Set(reflect.ValueOf(r))
+			var fs reflect.Value
+			if d.parseHeader {
+				if j >= len(lineMap[0]) {
+					break
+				}
+				fs = fv.FieldByName(fmap[lineMap[0][j]].Name)
+			} else {
+				if j >= fv.NumField() {
+					break
+				}
+				fs = fv.Field(j)
+			}
+			if fs.IsValid() && fs.CanSet() {
+				var perr error = nil
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							perr = DSV_DESERIALIZE_ERROR.enhance(fmt.Errorf("%v", r))
 						}
-						// TODO: this should be way more robust
 					}()
-					if perr != nil {
-						return perr
+					ty := fs.Type().Name()
+					if ty == "" {
+						ty = fs.Type().String()
 					}
+					if f, okgo := d.deserializers[ty]; okgo {
+						v, _ := f(r, []byte(r))
+						fs.Set(reflect.ValueOf(v))
+					} else {
+						fs.Set(reflect.ValueOf(r))
+					}
+				}()
+				if perr != nil {
+					return perr
 				}
 			}
 		}
-		rs.Index(i + offs).Set(fv)
+		rs.Index(rowIndex).Set(fv)
+		rowIndex++
 	}
 
 	return nil
@@ -383,11 +358,15 @@ func (d dsvi) serializeIfc(src reflect.Value, fields []string) ([]byte, error) {
 	bs := []byte{}
 	for _, fidx := range fields {
 		fv := src.FieldByName(fidx)
-		if f, okgo := d.serializers[fv.Type().Name()]; okgo {
+		ty := fv.Type().Name()
+		if ty == "" {
+			ty = fv.Type().String()
+		}
+		if f, okgo := d.serializers[ty]; okgo {
 			v, _ := f(fv.Interface())
 			bs = append(append(bs, v...), d.fieldDelimiter...)
 		} else {
-			return bs, DSV_SERIALIZER_MISSING.enhance(fmt.Errorf("Unable to find handler for type: %s", fv.Type().Name()))
+			return bs, DSV_SERIALIZER_MISSING.enhance(fmt.Errorf("Unable to find handler for type: %s", ty))
 		}
 	}
 	if len(bs) > 0 {
@@ -437,6 +416,8 @@ func (d dsvi) Serialize(src interface{}) ([]byte, error) {
 			}
 			bs = append(bs, ds...)
 		}
+	} else {
+		fmt.Printf("unknown type: %v\n", rs.Kind())
 	}
 
 	if len(bs) > d.fdlen {

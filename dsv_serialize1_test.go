@@ -2,10 +2,140 @@ package dsv_test
 
 import (
 	"fmt"
+	"math/rand"
+	"reflect"
 	"testing"
 
 	dsv "github.com/tony-o/dsv"
 )
+
+type LottoFields struct {
+	A string  `csv:"A"`
+	B int     `csv:"B"`
+	C float64 `csv:"C"`
+	D string  `csv:"D"`
+	E string  `csv:"E"`
+	F string  `csv:"F"`
+	G string  `csv:"G"`
+	H string  `csv:"H"`
+	I float32 `csv:"I"`
+	J bool    `csv:"J"`
+	K byte    `csv:"K"`
+	L []byte  `csv:"L"`
+}
+
+func (a LottoFields) Cmp(b LottoFields) (bool, string) {
+	if a.A != b.A {
+		return false, "A"
+	}
+	if a.B != b.B {
+		return false, "B"
+	}
+	if fmt.Sprintf("%0.2f", a.C) != fmt.Sprintf("%0.2f", b.C) {
+		return false, "C"
+	}
+	if a.D != b.D {
+		return false, "D"
+	}
+	if a.E != b.E {
+		return false, "E"
+	}
+	if a.F != b.F {
+		return false, "F"
+	}
+	if a.G != b.G {
+		return false, "G"
+	}
+	if a.H != b.H {
+		return false, "H"
+	}
+	if fmt.Sprintf("%0.2f", a.I) != fmt.Sprintf("%0.2f", b.I) {
+		return false, "I"
+	}
+	if a.J != b.J {
+		return false, "J"
+	}
+	if a.K != b.K {
+		return false, "K"
+	}
+
+	if len(a.L) != len(b.L) {
+		return false, "L"
+	}
+	for i := range a.L {
+		if a.L[i] != b.L[i] {
+			return false, "L"
+		}
+	}
+	return true, ""
+}
+
+func TestDSV_Serialize_EnsureOrdering(t *testing.T) {
+	return
+	testCase := []LottoFields{}
+	for i := 0; i < 2000; i++ {
+		var b bool
+		if rand.Intn(1000) < 500 {
+			b = true
+		}
+		testCase = append(testCase, LottoFields{
+			A: randStr(15),
+			B: rand.Intn(2400),
+			C: rand.Float64() * 2400,
+			D: randStr(24),
+			E: randStr(3),
+			F: randStr(16),
+			G: randStr(512),
+			H: randStr(1),
+			I: rand.Float32() * 10,
+			J: b,
+			K: ls[rand.Intn(len(ls))],
+			L: []byte(randStr(5000)),
+		})
+	}
+
+	d, e := dsv.NewDSV(dsv.DSVOpt{})
+	if e != nil {
+		t.Logf("failed to create dsv: %v", e)
+		t.FailNow()
+	}
+	bs, e := d.Serialize(testCase)
+	if e != nil {
+		t.Logf("serialization error: %v", e)
+		t.FailNow()
+	}
+
+	resultCase := []LottoFields{}
+	e = d.Deserialize(bs, &resultCase)
+	if e != nil {
+		t.Logf("deserialization error: %v", e)
+		t.FailNow()
+	}
+	if len(resultCase) != len(testCase) {
+		t.Logf("deserialization length mismatch, expected=%d,got=%d", len(testCase), len(resultCase))
+		t.FailNow()
+	}
+	for i := range testCase {
+		if ok, fld := testCase[i].Cmp(resultCase[i]); !ok {
+			av := reflect.ValueOf(testCase[i])
+			af := av.FieldByName(fld)
+			bv := reflect.ValueOf(resultCase[i])
+			bf := bv.FieldByName(fld)
+			t.Logf("deserialization error with field [%d]%s: expected=%+v,got=%+v", i, fld, af.Interface(), bf.Interface())
+			t.FailNow()
+		}
+	}
+}
+
+var ls = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+func randStr(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = ls[rand.Intn(len(ls))]
+	}
+	return string(b)
+}
 
 // TestDSV_Serialize_Basic basic test for serialization
 func TestDSV_Serialize_Basic(t *testing.T) {
@@ -72,7 +202,6 @@ func TestDSV_Serialize_Tests(t *testing.T) {
 				t2.FailNow()
 			}
 			if tst.Len(tst.Into) != tst.Expect.RowCount {
-				fmt.Printf("tst.Into=%q\n", tst.Into)
 				t2.Logf("%s failed: row count expected=%d,got=%d", tst.Name, tst.Expect.RowCount, tst.Len(tst.Into))
 				t2.FailNow()
 			}
