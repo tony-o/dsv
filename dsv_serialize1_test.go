@@ -212,3 +212,41 @@ func TestDSV_Serialize_Tests(t *testing.T) {
 		})
 	}
 }
+
+type X struct {
+	F float64
+}
+
+type Y struct {
+	X *X `csv:"x"`
+}
+
+func TestDSV_Serialize_FullPkg(t *testing.T) {
+	d := dsv.NewDSVMust(dsv.DSVOpt{
+		ParseHeader: dsv.DBool(false),
+		Serializers: dsv.DSerial(map[string]func(interface{}) ([]byte, bool){
+			"*dsv_test.X": func(i interface{}) ([]byte, bool) {
+				switch i.(type) {
+				case *X:
+					if i.(*X) == nil {
+						return []byte("nil"), true
+					}
+					return []byte(fmt.Sprintf("+%0.0f", i.(*X).F)), true
+				}
+				return []byte{}, false
+			},
+		}),
+	})
+	bs, e := d.Serialize(&[]Y{
+		{X: &X{F: 5.00}},
+		{},
+	})
+	if e != nil {
+		t.Logf("serialization error: %s", e)
+		t.FailNow()
+	}
+	if string(bs) != "+5\nnil" {
+		t.Logf("serialization wrong: expected=\"+5\\nnil\",got=%q", string(bs))
+		t.FailNow()
+	}
+}

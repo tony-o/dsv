@@ -241,15 +241,12 @@ func (d dsvi) DeserializeMapIndex(s string) (map[int][]string, error) {
 		} else if !inqt && s[i:i+d.fdlen] == fd {
 			ss := d.NormalizeString([]byte(s[l:i]))
 			m[rmap] = append(m[rmap], string(ss))
-			//fmt.Printf("l=%d,i=%d\n", l, i)
 			i += d.fdlen - 1
 			l = i + 1
 		} else if !inqt && s[i:i+d.lslen] == ls {
 			ss := d.NormalizeString([]byte(s[l:i]))
 			m[rmap] = append(m[rmap], string(ss))
-			//fmt.Printf("l=%d,i=%d\n", l, i)
 			if ol <= i-d.lslen || !d.skipEmptyRow {
-				//	fmt.Printf("m[rmap] = m[%d] = %+v :c=%d\n\n", rmap, m[rmap], len(m[rmap]))
 				rmap++
 				m[rmap] = []string{}
 			} else {
@@ -331,10 +328,7 @@ func (d dsvi) Deserialize(s []byte, tgt interface{}) error {
 							perr = DSV_DESERIALIZE_ERROR.enhance(fmt.Errorf("%v", r))
 						}
 					}()
-					ty := fs.Type().Name()
-					if ty == "" {
-						ty = fs.Type().String()
-					}
+					ty := fs.Type().String()
 					if f, okgo := d.deserializers[ty]; okgo {
 						v, _ := f(r, []byte(r))
 						fs.Set(reflect.ValueOf(v))
@@ -358,10 +352,7 @@ func (d dsvi) serializeIfc(src reflect.Value, fields []string) ([]byte, error) {
 	bs := []byte{}
 	for _, fidx := range fields {
 		fv := src.FieldByName(fidx)
-		ty := fv.Type().Name()
-		if ty == "" {
-			ty = fv.Type().String()
-		}
+		ty := fv.Type().String()
 		if f, okgo := d.serializers[ty]; okgo {
 			v, _ := f(fv.Interface())
 			bs = append(append(bs, v...), d.fieldDelimiter...)
