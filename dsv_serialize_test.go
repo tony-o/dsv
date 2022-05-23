@@ -44,22 +44,22 @@ func TestSerialize_Basic(t *testing.T) {
 		},
 	}
 
-	dsv.Serializers["dsv_test.Embedded"] = func(i interface{}) (string, bool) {
+	/*dsv.Serializers["dsv_test.Embedded"] = func(i interface{}) (string, bool) {
 		switch i.(type) {
 		case Embedded:
 			return fmt.Sprintf("xXx%dxXx", i.(Embedded).X), true
 		}
 		return "", false
-	}
+	}*/
+	d := dsv.NewDSV(true, []byte("\n"), []byte(","), []byte("\\"), []byte("\""))
 
-	d := dsv.NewDSV()
 	dsv, err := d.Serialize(bs)
-	if err != 0 {
+	if err != nil {
 		t.Logf("error: %v", err)
 		t.FailNow()
 	}
 	exp := fmt.Sprintf("\"a\",\"b\",\"c\",\"x\"\n%d,%v,%f,xXx%dxXx\n%d,%v,%f,xXx%dxXx\n%d,\"\\\"\nthree\\\"\",%f,xXx%dxXx", bs[0].A, bs[0].B, bs[0].C, bs[0].X.X, bs[1].A, bs[1].B, bs[1].C, bs[1].X.X, bs[2].A, bs[2].C, bs[2].X.X)
-	if dsv != exp {
+	if string(dsv) != exp {
 		t.Logf("\nexpected=%q\n     got=%q", exp, dsv)
 		t.FailNow()
 	}
@@ -68,12 +68,12 @@ func TestSerialize_Basic(t *testing.T) {
 	d.Deserialize(dsv, &basics)
 
 	dsv, err = d.Serialize(&(bs[0]))
-	if err != 0 {
+	if err != nil {
 		t.Logf("error: %v", err)
 		t.FailNow()
 	}
 	exp = fmt.Sprintf("\"a\",\"b\",\"c\",\"x\"\n%d,%v,%f,xXx%dxXx", bs[0].A, bs[0].B, bs[0].C, bs[0].X.X)
-	if dsv != exp {
+	if string(dsv) != exp {
 		t.Logf("\nexpected=%q\n     got=%q", exp, dsv)
 		t.FailNow()
 	}

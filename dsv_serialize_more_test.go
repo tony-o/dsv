@@ -71,7 +71,6 @@ func (a LottoFields) Cmp(b LottoFields) (bool, string) {
 }
 
 func TestDSV_Serialize_EnsureOrdering(t *testing.T) {
-	return
 	testCase := []LottoFields{}
 	for i := 0; i < 2000; i++ {
 		var b bool
@@ -94,11 +93,7 @@ func TestDSV_Serialize_EnsureOrdering(t *testing.T) {
 		})
 	}
 
-	d, e := dsv.NewDSV(dsv.DSVOpt{})
-	if e != nil {
-		t.Logf("failed to create dsv: %v", e)
-		t.FailNow()
-	}
+	d := dsv.NewDSV(true, []byte("\n"), []byte(","), []byte("\\"), []byte("\""))
 	bs, e := d.Serialize(testCase)
 	if e != nil {
 		t.Logf("serialization error: %v", e)
@@ -139,11 +134,7 @@ func randStr(n int) string {
 
 // TestDSV_Serialize_Basic basic test for serialization
 func TestDSV_Serialize_Basic(t *testing.T) {
-	d, e := dsv.NewDSV(dsv.DSVOpt{})
-	if e != nil {
-		t.Logf("failed to create dsv: %v", e)
-		t.FailNow()
-	}
+	d := dsv.NewDSV(true, []byte("\n"), []byte(","), []byte("\\"), []byte("\""))
 	ts := &[]*TagTest{
 		&TagTest{
 			Id:    42,
@@ -180,7 +171,7 @@ func TestDSV_Serialize_Basic(t *testing.T) {
 func TestDSV_Serialize_Tests(t *testing.T) {
 	for _, tst := range tests {
 		t.Run(tst.Name, func(t2 *testing.T) {
-			d := dsv.NewDSVMust(tst.Dsvo)
+			d := dsv.NewDSV(true, tst.Dsvo[0], tst.Dsvo[1], tst.Dsvo[2], tst.Dsvo[3])
 			bs, e := d.Serialize(tst.Expect)
 			if e != nil {
 				t.Logf("%s failed: serialization error %v", tst.Name, e)
@@ -222,7 +213,8 @@ type Y struct {
 }
 
 func TestDSV_Serialize_FullPkg(t *testing.T) {
-	d := dsv.NewDSVMust(dsv.DSVOpt{
+	d := dsv.NewDSV(true, []byte("\n"), []byte(","), []byte("\\"), []byte("\""))
+	/*d := dsv.NewDSVMust(dsv.DSVOpt{
 		ParseHeader: dsv.DBool(false),
 		Serializers: dsv.DSerial(map[string]func(interface{}) ([]byte, bool){
 			"*dsv_test.X": func(i interface{}) ([]byte, bool) {
@@ -236,7 +228,7 @@ func TestDSV_Serialize_FullPkg(t *testing.T) {
 				return []byte{}, false
 			},
 		}),
-	})
+	})*/
 	bs, e := d.Serialize(&[]Y{
 		{X: &X{F: 5.00}},
 		{},
